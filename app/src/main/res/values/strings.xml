@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Element(s)</string>
+    <string name="authorize_login_cancel">Don\'t ask for me this again</string>
+    <string name="authorize_login_title">Login with biometric next time?</string>
+    <string name="authorize_login_subtitle">If yes just use the biometric that you use to unlock your phone!</string>
+
+    <string name="login_title">Please enter with you biometric</string>
+    <string name="login_subtitle">Use the biometric that you use to unlock your phone!</string>
+</resources>
