@@ -1,5 +1,6 @@
 package com.ventures.elements
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -9,13 +10,13 @@ import android.os.Bundle
 import android.os.Handler
 import android.view.KeyEvent
 import android.webkit.*
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricConstants
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import kotlinx.android.synthetic.main.activity_main.*
 import java.util.concurrent.Executor
-
 
 class MainActivity : AppCompatActivity(R.layout.activity_main) {
 
@@ -25,6 +26,7 @@ class MainActivity : AppCompatActivity(R.layout.activity_main) {
     private lateinit var storage: SharedPreferences
 
     private var deepLinking: Uri? = null
+    private lateinit var uploadMessage: ValueCallback<Array<Uri>>
 
     @Suppress("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,12 +40,15 @@ class MainActivity : AppCompatActivity(R.layout.activity_main) {
 
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
+        webView.settings.allowContentAccess = true
+        webView.settings.allowFileAccess = true
 
         webView.addJavascriptInterface(
             WebAppInterface(
                 this
-            ), "Android-App")
-        webView.webViewClient = object: WebViewClient() {
+            ), "Android-App"
+        )
+        webView.webViewClient = object : WebViewClient() {
 
             override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                 if (Uri.parse(url).host?.contains("spaces") == true) {
@@ -71,10 +76,22 @@ class MainActivity : AppCompatActivity(R.layout.activity_main) {
 
             override fun onShowFileChooser(
                 webView: WebView?,
-                uploadMsg: ValueCallback<Array<Uri?>?>?,
-                fileChooserParams: FileChooserParams?
+                uploadMsg: ValueCallback<Array<Uri>>,
+                fileChooserParams: FileChooserParams
             ): Boolean {
-                openChooserDialog()
+                uploadMessage = uploadMsg
+                try {
+                    startActivityForResult(
+                        fileChooserParams.createIntent(),
+                        REQUEST_CODE_UPLOAD_FILES
+                    )
+                } catch (e: ActivityNotFoundException) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "No application was founded to open this kind of file!",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
                 return true
             }
         }
@@ -82,14 +99,23 @@ class MainActivity : AppCompatActivity(R.layout.activity_main) {
         showBiometric()
     }
 
-    private fun openChooserDialog() {
-        startActivityForResult(Intent(Intent.ACTION_PICK,
-            android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI) , 101)
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == REQUEST_CODE_UPLOAD_FILES && ::uploadMessage.isInitialized) {
+            uploadMessage.onReceiveValue(
+                WebChromeClient.FileChooserParams.parseResult(
+                    resultCode,
+                    data
+                )
+            )
+        } else {
+            super.onActivityResult(requestCode, resultCode, data)
+        }
     }
 
     private fun showBiometric() {
         val showBiometric = storage.getBoolean(SHOW_BIOMETRICS_PROMPT, true) || storage.getBoolean(
-            USER_ADDED_BIOMETRIC, false)
+            USER_ADDED_BIOMETRIC, false
+        )
 
         if (showBiometric) {
             Handler().postDelayed({
@@ -183,5 +209,6 @@ class MainActivity : AppCompatActivity(R.layout.activity_main) {
         const val SHOW_BIOMETRICS_PROMPT = "SHOW_BIOMETRICS_PROMPT"
         const val USER_ADDED_BIOMETRIC = "USER_ADDED_BIOMETRIC"
         const val URL = "https://spaces.elements.one/"
+        const val REQUEST_CODE_UPLOAD_FILES = 101
     }
 }
